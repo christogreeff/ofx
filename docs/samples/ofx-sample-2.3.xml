@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?OFX OFXHEADER="200" VERSION="230" SECURITY="NONE" OLDFILEUID="NONE" NEWFILEUID="NONE"?>
+<!--
+  OFX 2.3 Sample Response File
+  ─────────────────────────────
+  Purpose  : Parser test coverage — generated to spec, not extracted from spec docs.
+  Format   : OFX 2.3 XML (OFXHEADER=200, VERSION=230)
+  Contents :
+    1. SIGNONMSGSRSV1   — Signon response (success)
+    2. BANKMSGSRSV1
+       a. STMTTRNRS #1  — Checking account: 13 transactions covering all TRNTYPE values,
+                          full PAYEE aggregate, ORIGCURRENCY, CORRECTFITID/CORRECTACTION,
+                          BANKACCTTO transfer, BALLIST, AVAILBAL, LEDGERBAL
+       b. STMTTRNRS #2  — Savings account: simple deposit + interest + LEDGERBAL
+       c. STMTTRNRS #3  — Error response (account not found) — no nested STMTRS
+    3. CREDITCARDMSGSRSV1
+       a. CCSTMTTRNRS   — Credit card: mixed transactions, ORIGCURRENCY, pending list
+
+  Parser edge cases exercised:
+    - All 15 TRNTYPE values (CREDIT, DEBIT, INT, DIV, FEE, SRVCHG, DEP, ATM, POS,
+      XFER, CHECK, PAYMENT, CASH, DIRECTDEP, DIRECTDEBIT, REPEATPMT, OTHER)
+    - Negative and positive TRNAMT; zero-cent TRNAMT on correction DELETE
+    - CORRECTFITID + CORRECTACTION=REPLACE (corrected amount)
+    - CORRECTFITID + CORRECTACTION=DELETE (removes a duplicate)
+    - Full PAYEE aggregate (NAME, ADDR1, ADDR2, CITY, STATE, POSTALCODE, COUNTRY, PHONE)
+    - ORIGCURRENCY aggregate (converted EUR→USD)
+    - CURRENCY aggregate (unconverted foreign amount)
+    - BANKACCTTO on a XFER transaction
+    - CCACCTTO on a credit card payment transaction
+    - REFNUM, CHECKNUM, SIC, EXTDNAME, PAYEEID
+    - MEMO with XML-special characters (&amp; &lt; &gt;)
+    - Datetime with full precision: YYYYMMDDHHMMSS.XXX[offset:TZ]
+    - Datetime with date-only: YYYYMMDD (minimal valid form)
+    - BANKTRANLISTP with HOLD pending transaction
+    - Error STMTTRNRS (STATUS CODE 2003, no nested STMTRS)
+    - BALLIST with BAL aggregate
+    - Long FITID (up to 255 chars per spec, here 36-char UUID style)
+    - CLTCOOKIE echoed back from request
+-->
+<OFX>
+
+  <!-- ═══════════════════════════════════════════════
+       1. SIGNON RESPONSE
+       ═══════════════════════════════════════════════ -->
+  <SIGNONMSGSRSV1>
+    <SONRS>
+      <STATUS>
+        <CODE>0</CODE>
+        <SEVERITY>INFO</SEVERITY>
+        <MESSAGE>Login successful</MESSAGE>
+      </STATUS>
+      <DTSERVER>20241015143022.000[-5:EST]</DTSERVER>
+      <LANGUAGE>ENG</LANGUAGE>
+      <DTPROFUP>20230601000000.000[0:GMT]</DTPROFUP>
+      <DTACCTUP>20241001000000.000[-5:EST]</DTACCTUP>
+      <FI>
+        <ORG>TESTBANK</ORG>
+        <FID>000111222</FID>
+      </FI>
+      <SESSCOOKIE>A3B2C1D0E9F8G7H6</SESSCOOKIE>
+    </SONRS>
+  </SIGNONMSGSRSV1>
+
+  <!-- ═══════════════════════════════════════════════
+       2. BANKING MESSAGE SET
+       ═══════════════════════════════════════════════ -->
+  <BANKMSGSRSV1>
+
+    <!-- ─────────────────────────────────────────────
+         2a. CHECKING ACCOUNT STATEMENT
+         Account : 9876543210  (CHECKING)
+         Period  : 2024-10-01 → 2024-10-15
+         ───────────────────────────────────────────── -->
+    <STMTTRNRS>
+      <TRNUID>TXN-REQ-CHK-001</TRNUID>
+      <STATUS>
+        <CODE>0</CODE>
+        <SEVERITY>INFO</SEVERITY>
+      </STATUS>
+      <CLTCOOKIE>client-ref-chk-001</CLTCOOKIE>
+      <STMTRS>
+        <CURDEF>USD</CURDEF>
+        <BANKACCTFROM>
+          <BANKID>000111222</BANKID>
+          <ACCTID>9876543210</ACCTID>
+          <ACCTTYPE>CHECKING</ACCTTYPE>
+        </BANKACCTFROM>
+
+        <BANKTRANLIST>
+          <DTSTART>20241001000000.000[-5:EST]</DTSTART>
+          <DTEND>20241015000000.000[-5:EST]</DTEND>
+
+          <!-- TXN-01: DIRECTDEP — payroll direct deposit -->
+          <STMTTRN>
+            <TRNTYPE>DIRECTDEP</TRNTYPE>
+            <DTPOSTED>20241001000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241001000000.000[-5:EST]</DTUSER>
+            <TRNAMT>3250.00</TRNAMT>
+            <FITID>2024100100001</FITID>
+            <NAME>ACME CORP PAYROLL</NAME>
+            <MEMO>Payroll deposit - period ending 2024-09-30</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-02: CHECK — mortgage payment with full PAYEE aggregate -->
+          <STMTTRN>
+            <TRNTYPE>CHECK</TRNTYPE>
+            <DTPOSTED>20241002000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241001000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-1842.57</TRNAMT>
+            <FITID>2024100200001</FITID>
+            <CHECKNUM>1042</CHECKNUM>
+            <REFNUM>MTG-2024100200001</REFNUM>
+            <PAYEE>
+              <NAME>First National Mortgage LLC</NAME>
+              <ADDR1>100 Finance Street</ADDR1>
+              <ADDR2>Suite 400</ADDR2>
+              <CITY>Columbus</CITY>
+              <STATE>OH</STATE>
+              <POSTALCODE>43215-1234</POSTALCODE>
+              <COUNTRY>USA</COUNTRY>
+              <PHONE>800-555-0101</PHONE>
+            </PAYEE>
+            <EXTDNAME>Oct 2024 mortgage - principal &amp; interest</EXTDNAME>
+            <MEMO>Loan #MTG-78291</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-03: POS — grocery store; will be corrected by TXN-10 -->
+          <STMTTRN>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTPOSTED>20241003143015.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241003143015.000[-5:EST]</DTUSER>
+            <TRNAMT>-47.23</TRNAMT>
+            <FITID>2024100300001</FITID>
+            <SIC>5411</SIC>
+            <NAME>WHOLE FOODS #0291</NAME>
+            <MEMO>Grocery purchase</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-04: ATM — cash withdrawal -->
+          <STMTTRN>
+            <TRNTYPE>ATM</TRNTYPE>
+            <DTPOSTED>20241004090000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241004090000.000[-5:EST]</DTUSER>
+            <TRNAMT>-200.00</TRNAMT>
+            <FITID>2024100400001</FITID>
+            <NAME>ATM WITHDRAWAL</NAME>
+            <MEMO>ATM 00291 - Main Street Branch</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-05: SRVCHG — monthly service charge -->
+          <STMTTRN>
+            <TRNTYPE>SRVCHG</TRNTYPE>
+            <DTPOSTED>20241005000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>-12.00</TRNAMT>
+            <FITID>2024100500001</FITID>
+            <NAME>MONTHLY SERVICE FEE</NAME>
+          </STMTTRN>
+
+          <!-- TXN-06: PAYMENT — electronic bill payment with PAYEEID -->
+          <STMTTRN>
+            <TRNTYPE>PAYMENT</TRNTYPE>
+            <DTPOSTED>20241007000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241006000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-134.87</TRNAMT>
+            <FITID>2024100700001</FITID>
+            <PAYEEID>ELEC-UTIL-00291</PAYEEID>
+            <NAME>CITY ELECTRIC &amp; GAS</NAME>
+            <MEMO>Account #291847 - Oct bill</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-07: INT — interest credit -->
+          <STMTTRN>
+            <TRNTYPE>INT</TRNTYPE>
+            <DTPOSTED>20241008000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>0.43</TRNAMT>
+            <FITID>2024100800001</FITID>
+            <NAME>INTEREST CREDIT</NAME>
+          </STMTTRN>
+
+          <!-- TXN-08: XFER — transfer to savings with BANKACCTTO -->
+          <STMTTRN>
+            <TRNTYPE>XFER</TRNTYPE>
+            <DTPOSTED>20241009000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241009000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-500.00</TRNAMT>
+            <FITID>2024100900001</FITID>
+            <NAME>ONLINE TRANSFER</NAME>
+            <BANKACCTTO>
+              <BANKID>000111222</BANKID>
+              <ACCTID>1122334455</ACCTID>
+              <ACCTTYPE>SAVINGS</ACCTTYPE>
+            </BANKACCTTO>
+            <MEMO>Transfer to savings - emergency fund</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-09: POS — international purchase; ORIGCURRENCY (EUR converted to USD) -->
+          <STMTTRN>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTPOSTED>20241010120000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241010120000.000[-5:EST]</DTUSER>
+            <TRNAMT>-54.32</TRNAMT>
+            <FITID>2024101000001</FITID>
+            <SIC>5812</SIC>
+            <NAME>CAFE DE PARIS</NAME>
+            <MEMO>Foreign transaction - EUR converted to USD</MEMO>
+            <ORIGCURRENCY>
+              <CURRATE>1.08640</CURRATE>
+              <CURSYM>EUR</CURSYM>
+            </ORIGCURRENCY>
+          </STMTTRN>
+
+          <!-- TXN-10: CORRECTACTION=REPLACE — corrects TXN-03 (wrong amount posted) -->
+          <STMTTRN>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTPOSTED>20241003143015.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241003143015.000[-5:EST]</DTUSER>
+            <TRNAMT>-52.17</TRNAMT>
+            <FITID>2024100300001-COR</FITID>
+            <CORRECTFITID>2024100300001</CORRECTFITID>
+            <CORRECTACTION>REPLACE</CORRECTACTION>
+            <SIC>5411</SIC>
+            <NAME>WHOLE FOODS #0291</NAME>
+            <MEMO>Correction: original amount -47.23 was incorrect</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-11: DEBIT — generic debit (returned item) -->
+          <STMTTRN>
+            <TRNTYPE>DEBIT</TRNTYPE>
+            <DTPOSTED>20241011000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>-25.00</TRNAMT>
+            <FITID>2024101100001</FITID>
+            <NAME>NSF FEE</NAME>
+            <MEMO>Returned item fee - check #1038</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-12: DIRECTDEBIT — merchant-initiated recurring charge -->
+          <STMTTRN>
+            <TRNTYPE>DIRECTDEBIT</TRNTYPE>
+            <DTPOSTED>20241012000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241012000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-15.99</TRNAMT>
+            <FITID>2024101200001</FITID>
+            <PAYEEID>STREAM-SVC-00421</PAYEEID>
+            <NAME>STREAMFLIX INC</NAME>
+            <MEMO>Monthly subscription</MEMO>
+          </STMTTRN>
+
+          <!-- TXN-13: CREDIT — generic credit (insurance refund) -->
+          <STMTTRN>
+            <TRNTYPE>CREDIT</TRNTYPE>
+            <DTPOSTED>20241014000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>318.40</TRNAMT>
+            <FITID>2024101400001</FITID>
+            <NAME>STATEWIDE INSURANCE</NAME>
+            <MEMO>Auto insurance refund - policy #AU-29183</MEMO>
+          </STMTTRN>
+
+        </BANKTRANLIST>
+
+        <!-- Pending transactions -->
+        <BANKTRANLISTP>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+
+          <!-- Pending HOLD — large check deposit, partial immediate credit -->
+          <STMTTRNP>
+            <TRNTYPE>HOLD</TRNTYPE>
+            <DTTRAN>20241015000000.000[-5:EST]</DTTRAN>
+            <DTEXPIRE>20241022000000.000[-5:EST]</DTEXPIRE>
+            <TRNAMT>2500.00</TRNAMT>
+            <FITID>2024101500001-HOLD</FITID>
+            <NAME>CHECK DEPOSIT HOLD</NAME>
+            <MEMO>Check #8821 - funds held 7 business days for clearance</MEMO>
+          </STMTTRNP>
+
+          <!-- Pending POS — debit card pre-auth -->
+          <STMTTRNP>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTTRAN>20241015000000.000[-5:EST]</DTTRAN>
+            <TRNAMT>-63.41</TRNAMT>
+            <FITID>2024101500002-PEND</FITID>
+            <NAME>SHELL OIL #4421</NAME>
+            <MEMO>Fuel pre-authorisation</MEMO>
+          </STMTTRNP>
+
+        </BANKTRANLISTP>
+
+        <LEDGERBAL>
+          <BALAMT>736.78</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </LEDGERBAL>
+
+        <AVAILBAL>
+          <BALAMT>236.78</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </AVAILBAL>
+
+        <!-- Extended balance list -->
+        <BALLIST>
+          <BAL>
+            <NAME>FLOAT</NAME>
+            <DESC>Outstanding float amount</DESC>
+            <BALTYPE>DOLLAR</BALTYPE>
+            <BALAMT>-500.00</BALAMT>
+            <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+          </BAL>
+          <BAL>
+            <NAME>OVERDRAFTLIMIT</NAME>
+            <DESC>Overdraft protection limit</DESC>
+            <BALTYPE>DOLLAR</BALTYPE>
+            <BALAMT>1000.00</BALAMT>
+            <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+          </BAL>
+        </BALLIST>
+
+      </STMTRS>
+    </STMTTRNRS>
+
+    <!-- ─────────────────────────────────────────────
+         2b. SAVINGS ACCOUNT STATEMENT
+         Account : 1122334455  (SAVINGS)
+         Period  : 2024-10-01 → 2024-10-15
+         ───────────────────────────────────────────── -->
+    <STMTTRNRS>
+      <TRNUID>TXN-REQ-SAV-001</TRNUID>
+      <STATUS>
+        <CODE>0</CODE>
+        <SEVERITY>INFO</SEVERITY>
+      </STATUS>
+      <STMTRS>
+        <CURDEF>USD</CURDEF>
+        <BANKACCTFROM>
+          <BANKID>000111222</BANKID>
+          <ACCTID>1122334455</ACCTID>
+          <ACCTTYPE>SAVINGS</ACCTTYPE>
+        </BANKACCTFROM>
+
+        <BANKTRANLIST>
+          <DTSTART>20241001000000.000[-5:EST]</DTSTART>
+          <DTEND>20241015000000.000[-5:EST]</DTEND>
+
+          <!-- DEP — transfer in from checking (mirror of TXN-08) -->
+          <STMTTRN>
+            <TRNTYPE>DEP</TRNTYPE>
+            <DTPOSTED>20241009000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>500.00</TRNAMT>
+            <FITID>2024100900002</FITID>
+            <NAME>ONLINE TRANSFER</NAME>
+            <MEMO>Transfer from checking x3210</MEMO>
+          </STMTTRN>
+
+          <!-- INT — monthly interest earned -->
+          <STMTTRN>
+            <TRNTYPE>INT</TRNTYPE>
+            <DTPOSTED>20241015000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>12.84</TRNAMT>
+            <FITID>2024101500003</FITID>
+            <NAME>INTEREST CREDIT</NAME>
+            <MEMO>Monthly interest at 4.25% APY</MEMO>
+          </STMTTRN>
+
+          <!-- REPEATPMT — standing order -->
+          <STMTTRN>
+            <TRNTYPE>REPEATPMT</TRNTYPE>
+            <DTPOSTED>20241010000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>-250.00</TRNAMT>
+            <FITID>2024101000002</FITID>
+            <NAME>AUTO-INVEST TRANSFER</NAME>
+            <MEMO>Recurring investment contribution - model #RI-0042</MEMO>
+          </STMTTRN>
+
+        </BANKTRANLIST>
+
+        <LEDGERBAL>
+          <BALAMT>8762.84</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </LEDGERBAL>
+
+        <AVAILBAL>
+          <BALAMT>8762.84</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </AVAILBAL>
+
+      </STMTRS>
+    </STMTTRNRS>
+
+    <!-- ─────────────────────────────────────────────
+         2c. ERROR RESPONSE — account not found
+         Tests: STATUS CODE 2003, absent STMTRS
+         ───────────────────────────────────────────── -->
+    <STMTTRNRS>
+      <TRNUID>TXN-REQ-ERR-001</TRNUID>
+      <STATUS>
+        <CODE>2003</CODE>
+        <SEVERITY>ERROR</SEVERITY>
+        <MESSAGE>Account not found: 9999999999</MESSAGE>
+      </STATUS>
+      <CLTCOOKIE>client-ref-err-001</CLTCOOKIE>
+      <!-- Per spec section 2.4.6: when SEVERITY=ERROR the nested response aggregate
+           (STMTRS) is omitted entirely. -->
+    </STMTTRNRS>
+
+  </BANKMSGSRSV1>
+
+  <!-- ═══════════════════════════════════════════════
+       3. CREDIT CARD MESSAGE SET
+       ═══════════════════════════════════════════════ -->
+  <CREDITCARDMSGSRSV1>
+
+    <!-- ─────────────────────────────────────────────
+         3a. CREDIT CARD STATEMENT
+         Account : 4111111111111111  (Visa test PAN)
+         Period  : 2024-10-01 → 2024-10-15
+         ───────────────────────────────────────────── -->
+    <CCSTMTTRNRS>
+      <TRNUID>TXN-REQ-CC-001</TRNUID>
+      <STATUS>
+        <CODE>0</CODE>
+        <SEVERITY>INFO</SEVERITY>
+      </STATUS>
+      <CCSTMTRS>
+        <CURDEF>USD</CURDEF>
+        <CCACCTFROM>
+          <ACCTID>4111111111111111</ACCTID>
+        </CCACCTFROM>
+
+        <BANKTRANLIST>
+          <DTSTART>20241001000000.000[-5:EST]</DTSTART>
+          <DTEND>20241015000000.000[-5:EST]</DTEND>
+
+          <!-- CC-TXN-01: POS — retail purchase -->
+          <STMTTRN>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTPOSTED>20241002000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241002000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-89.99</TRNAMT>
+            <FITID>CC-2024100200001</FITID>
+            <SIC>5651</SIC>
+            <NAME>GAP STORE #1204</NAME>
+            <MEMO>Retail clothing purchase</MEMO>
+          </STMTTRN>
+
+          <!-- CC-TXN-02: POS — restaurant with CURRENCY (GBP, not converted) -->
+          <STMTTRN>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTPOSTED>20241005000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241005000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-42.50</TRNAMT>
+            <FITID>CC-2024100500001</FITID>
+            <SIC>5812</SIC>
+            <NAME>THE CROWN PUB</NAME>
+            <MEMO>London restaurant - amount in GBP, not converted</MEMO>
+            <CURRENCY>
+              <CURRATE>0.79120</CURRATE>
+              <CURSYM>GBP</CURSYM>
+            </CURRENCY>
+          </STMTTRN>
+
+          <!-- CC-TXN-03: FEE — annual card fee -->
+          <STMTTRN>
+            <TRNTYPE>FEE</TRNTYPE>
+            <DTPOSTED>20241007000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>-95.00</TRNAMT>
+            <FITID>CC-2024100700001</FITID>
+            <NAME>ANNUAL CARD FEE</NAME>
+          </STMTTRN>
+
+          <!-- CC-TXN-04: CREDIT — refund; DELETE correction removes a duplicate fee -->
+          <STMTTRN>
+            <TRNTYPE>CREDIT</TRNTYPE>
+            <DTPOSTED>20241008000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>95.00</TRNAMT>
+            <FITID>CC-2024100700001-DUP-DEL</FITID>
+            <CORRECTFITID>CC-2024100700001-DUP</CORRECTFITID>
+            <CORRECTACTION>DELETE</CORRECTACTION>
+            <NAME>CORRECTION - DUPLICATE FEE REMOVED</NAME>
+            <MEMO>Duplicate fee posting CC-2024100700001-DUP deleted</MEMO>
+          </STMTTRN>
+
+          <!-- CC-TXN-05: PAYMENT — credit card payment from bank account -->
+          <STMTTRN>
+            <TRNTYPE>PAYMENT</TRNTYPE>
+            <DTPOSTED>20241010000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241009000000.000[-5:EST]</DTUSER>
+            <TRNAMT>500.00</TRNAMT>
+            <FITID>CC-2024101000001</FITID>
+            <NAME>ONLINE PAYMENT - THANK YOU</NAME>
+            <CCACCTTO>
+              <ACCTID>4111111111111111</ACCTID>
+            </CCACCTTO>
+            <MEMO>Payment from checking x3210</MEMO>
+          </STMTTRN>
+
+          <!-- CC-TXN-06: CASH — cash advance -->
+          <STMTTRN>
+            <TRNTYPE>CASH</TRNTYPE>
+            <DTPOSTED>20241012000000.000[-5:EST]</DTPOSTED>
+            <DTUSER>20241012000000.000[-5:EST]</DTUSER>
+            <TRNAMT>-300.00</TRNAMT>
+            <FITID>CC-2024101200001</FITID>
+            <NAME>CASH ADVANCE ATM</NAME>
+            <MEMO>Cash advance fee may apply separately</MEMO>
+          </STMTTRN>
+
+          <!-- CC-TXN-07: DIV — dividend credit (reward points conversion) -->
+          <STMTTRN>
+            <TRNTYPE>DIV</TRNTYPE>
+            <DTPOSTED>20241014000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>25.00</TRNAMT>
+            <FITID>CC-2024101400001</FITID>
+            <NAME>REWARDS CASHBACK</NAME>
+            <MEMO>Cashback reward redemption - 2500 points</MEMO>
+          </STMTTRN>
+
+          <!-- CC-TXN-08: OTHER — misc charge not mapped to standard type -->
+          <STMTTRN>
+            <TRNTYPE>OTHER</TRNTYPE>
+            <DTPOSTED>20241015000000.000[-5:EST]</DTPOSTED>
+            <TRNAMT>-3.50</TRNAMT>
+            <FITID>CC-2024101500001</FITID>
+            <NAME>PAPER STATEMENT FEE</NAME>
+            <MEMO>Monthly paper statement fee &lt;see account terms&gt;</MEMO>
+          </STMTTRN>
+
+        </BANKTRANLIST>
+
+        <!-- Pending credit card transactions -->
+        <BANKTRANLISTP>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+
+          <STMTTRNP>
+            <TRNTYPE>POS</TRNTYPE>
+            <DTTRAN>20241015000000.000[-5:EST]</DTTRAN>
+            <TRNAMT>-156.23</TRNAMT>
+            <FITID>CC-2024101500002-PEND</FITID>
+            <NAME>AMAZON.COM</NAME>
+            <MEMO>Online purchase - pending clearance</MEMO>
+          </STMTTRNP>
+
+        </BANKTRANLISTP>
+
+        <LEDGERBAL>
+          <BALAMT>-911.22</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </LEDGERBAL>
+
+        <AVAILBAL>
+          <BALAMT>4088.78</BALAMT>
+          <DTASOF>20241015143022.000[-5:EST]</DTASOF>
+        </AVAILBAL>
+
+        <CASHADVBALAMT>-300.00</CASHADVBALAMT>
+        <CASHADVAVAILAMT>1700.00</CASHADVAVAILAMT>
+
+      </CCSTMTRS>
+    </CCSTMTTRNRS>
+
+  </CREDITCARDMSGSRSV1>
+
+</OFX>

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Ofx.Tests/Ofx.Tests.csproj" />
+  <Project Path="Ofx/Ofx.csproj" />
+</Solution>

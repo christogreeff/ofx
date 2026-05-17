@@ -1,52 +1,47 @@
-﻿using System;
 using System.Xml;
 using Ofx.Configuration;
 
-namespace Ofx.Repository
+namespace Ofx.Repository;
+
+/// <summary>
+/// Bank account identification details, corresponding to the OFX <c>BANKACCTFROM</c> aggregate.
+/// </summary>
+public class BankAccount
 {
-    /// <summary>
-    /// Bank account class
-    /// </summary>
-    public class BankAccount
+    /// <summary>Bank routing / transit identifier (BANKID).</summary>
+    public string BankId { get; private set; } = string.Empty;
+
+    /// <summary>Account number (ACCTID).</summary>
+    public string AccountId { get; private set; } = string.Empty;
+
+    /// <summary>Account type (ACCTTYPE).</summary>
+    public AccountType AccountType { get; private set; }
+
+    /// <param name="stmtrs">The <c>STMTRS</c> XML element.</param>
+    public BankAccount(XmlElement stmtrs)
     {
-        /// <summary>
-        /// Gets the Bank Id
-        /// </summary>
-        public string BankId { get; private set; }
-
-        /// <summary>
-        /// Gets the account id
-        /// </summary>
-        public string AccountId { get; private set; }
-
-        /// <summary>
-        /// Gets the account type
-        /// </summary>
-        public string AccountType { get; private set; }
-
-        /// <summary>
-        /// Default constructor
-        /// </summary>
-        /// <param name="stmtrs"></param>
-        public BankAccount(XmlElement stmtrs)
-        {
-            this.GetBankAccountDetails(stmtrs);
-        }
-
-        /// <summary>
-        /// Get bank account details
-        /// </summary>
-        /// <param name="stmtrs"></param>
-        private void GetBankAccountDetails(XmlElement stmtrs)
-        {
-            XmlElement bankacctfrom = stmtrs[Config.S_OFX_BANK_ACCOUNT_FROM];
-
-            if (bankacctfrom != null)
-            {
-                this.BankId = Convert.ToString(bankacctfrom[Config.S_OFX_BANK_ACCOUNT_BANK_ID].InnerText).Trim();
-                this.AccountId = Convert.ToString(bankacctfrom[Config.S_OFX_BANK_ACCOUNT_ID].InnerText).Trim();
-                this.AccountType = Convert.ToString(bankacctfrom[Config.S_OFX_BANK_ACCOUNT_TYPE].InnerText).Trim();
-            }
-        }
+        GetBankAccountDetails(stmtrs);
     }
+
+    private void GetBankAccountDetails(XmlElement stmtrs)
+    {
+        var bankacctfrom = stmtrs[Config.S_OFX_BANK_ACCOUNT_FROM];
+        if (bankacctfrom is null)
+            return;
+
+        BankId    = bankacctfrom[Config.S_OFX_BANK_ACCOUNT_BANK_ID]?.InnerText.Trim() ?? string.Empty;
+        AccountId = bankacctfrom[Config.S_OFX_BANK_ACCOUNT_ID]?.InnerText.Trim()      ?? string.Empty;
+        AccountType = ParseAccountType(bankacctfrom[Config.S_OFX_BANK_ACCOUNT_TYPE]?.InnerText.Trim());
+    }
+
+    private static AccountType ParseAccountType(string? raw) =>
+        raw?.ToUpperInvariant() switch
+        {
+            "CHECKING"   => AccountType.Checking,
+            "SAVINGS"    => AccountType.Savings,
+            "MONEYMRKT"  => AccountType.MoneyMrkt,
+            "CREDITLINE" => AccountType.CreditLine,
+            "CD"         => AccountType.CD,
+            _            => AccountType.Unknown,
+        };
 }

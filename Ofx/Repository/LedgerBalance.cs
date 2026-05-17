@@ -1,49 +1,31 @@
-﻿using System;
+using System.Globalization;
 using System.Xml;
 using Ofx.Configuration;
 
-namespace Ofx.Repository
+namespace Ofx.Repository;
+
+/// <summary>
+/// Account balance, corresponding to the OFX <c>LEDGERBAL</c> or <c>AVAILBAL</c> aggregate.
+/// </summary>
+public class LedgerBalance
 {
-    /// <summary>
-    /// Ledger balance
-    /// </summary>
-    public class LedgerBalance
+    /// <summary>Balance amount (BALAMT).</summary>
+    public decimal Balance { get; private set; }
+
+    /// <summary>Date the balance was calculated (DTASOF).</summary>
+    public DateTime Date { get; private set; }
+
+    /// <param name="balElement">The <c>LEDGERBAL</c> or <c>AVAILBAL</c> XML element.</param>
+    public LedgerBalance(XmlElement balElement)
     {
-        /// <summary>
-        /// Gets the balance
-        /// </summary>
-        public decimal Balance { get; private set; }
+        GetBalance(balElement);
+    }
 
-        /// <summary>
-        /// Gets balance date
-        /// </summary>
-        public DateTime Date { get; private set; }
-
-        /// <summary>
-        /// Default constructor
-        /// </summary>
-        /// <param name="stmtrs">XmlElement object</param>
-        public LedgerBalance(XmlElement stmtrs)
-        {
-            this.GetBalance(stmtrs);
-        }
-
-        /// <summary>
-        /// Get balance
-        /// </summary>
-        /// <param name="stmtrs">XmlElement object</param>
-        private void GetBalance(XmlElement stmtrs)
-        {
-            if (stmtrs != null)
-            {
-                XmlElement ledgerbal = stmtrs[Config.S_OFX_LEDGER_BALANCE];
-
-                if (ledgerbal != null)
-                {
-                    this.Balance = Convert.ToDecimal(ledgerbal[Config.S_OFX_LEDGER_BALANCE_AMOUNT].InnerText);
-                    this.Date = DateTime.ParseExact(Convert.ToString(ledgerbal[Config.S_OFX_LEDGER_BALANCE_DATE].InnerText).Trim(), Config.S_OFX_DATE_FORMAT, null);
-                }
-            }
-        }
+    private void GetBalance(XmlElement balElement)
+    {
+        Balance = decimal.Parse(
+                      balElement[Config.S_OFX_LEDGER_BALANCE_AMOUNT]?.InnerText.Trim() ?? "0",
+                      CultureInfo.InvariantCulture);
+        Date = Transaction.ParseOfxDate(balElement[Config.S_OFX_LEDGER_BALANCE_DATE]?.InnerText.Trim());
     }
 }

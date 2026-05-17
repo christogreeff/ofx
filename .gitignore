@@ -1,0 +1,7 @@
+bin/
+obj/
+.claude/
+Properties/
+docs/ofx_v2.3_schema_files/
+docs/ofx_v2.3_specification.md
+docs/ofx-spec-reference.md
