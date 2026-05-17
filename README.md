@@ -1,7 +1,8 @@
 # OFX
 
-Simplified C# library to read electronic `.ofx` (Open Financial Exchange) files downloaded from ABSA bank.
-The library is **not** a fully fledged OFX parser — it was built to be quick and simple.
+Lightweight .NET 10 library for parsing OFX bank statement files. Handles both OFX 2.x XML and
+OFX 1.x SGML formats (including files exported by South African banks such as ABSA and FNB).
+Extracts statements, accounts, transactions, and balances — without the overhead of a full OFX stack.
 
 ## Specifications
 
